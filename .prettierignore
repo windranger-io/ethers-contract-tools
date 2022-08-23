@@ -1,0 +1,7 @@
+# Ignore artifacts:
+.github
+.husky
+.eslintrc
+dist
+docs
+node_modules
