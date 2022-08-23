@@ -1,13 +1,13 @@
 import {ContractReceipt, utils} from 'ethers'
 import {Log} from '@ethersproject/abstract-provider'
 import {expect} from 'chai'
-import { TypedEvent, TypedEventFilter } from './event-types'
+import {TypedEvent, TypedEventFilter} from './event-types'
 
-type EventDataDecoder = (log: Log) => utils.Result
+export type EventDataDecoder = (log: Log) => utils.Result
 
 export interface ExtendedEventFilter<T = object>
     extends TypedEventFilter<TypedEvent<unknown[], T>> {
-    nonIndexed?: Record<string, unknown>
+    nonIndexed?: unknown[]
     decodeEventData: EventDataDecoder
 }
 
@@ -213,15 +213,57 @@ function _matchTopics(actual: Log, expected: ExtendedEventFilter): boolean {
     return true
 }
 
-function _matchProperties(
-    actual: utils.Result,
-    expected: Record<string, unknown>
-): boolean {
-    for (const propName in expected) {
-        if (actual[propName] !== expected[propName]) {
+function _matchProperties(actual: utils.Result, expected: unknown[]): boolean {
+    return !expected.some((value, index) => {
+        if ((value ?? null) === null) {
+            return false
+        }
+        const eq = isDeepEqual(value, actual[index])
+        return !eq
+    })
+}
+
+function isDeepEqual(v0: unknown, v1: unknown): boolean {
+    if (typeof v0 !== typeof v1) {
+        return false
+    }
+    if (typeof v0 !== 'object') {
+        return v0 === v1
+    }
+    if (Array.isArray(v0)) {
+        if (!Array.isArray(v1)) {
+            return false
+        }
+        const a0 = v0 as unknown[]
+        const a1 = v1 as unknown[]
+        return (
+            a0.length === a1.length &&
+            !a0.some((value, i) => !isDeepEqual(value, a1[i]))
+        )
+    }
+
+    const k0 = Object.getOwnPropertyNames(v0 as object)
+    const k1 = Object.getOwnPropertyNames(v1 as object)
+
+    if (k0.length !== k1.length) {
+        return false
+    }
+    const s1 = new Set(k1)
+    for (const key of k0) {
+        if (!s1.has(key)) {
+            return false
+        }
+
+        if (
+            !isDeepEqual(
+                (v0 as Record<string, unknown>)[key],
+                (v1 as Record<string, unknown>)[key]
+            )
+        ) {
             return false
         }
     }
+
     return true
 }
 
@@ -252,40 +294,67 @@ export function newExtendedEventFilter<T>(
 
 const _buildFilterArgs = (
     fragment: utils.EventFragment,
-    properties: Record<string, unknown>
-): [unknown[], Record<string, unknown> | undefined] => {
+    properties:
+        | Record<string, unknown>
+        | unknown[]
+        | (Record<string, unknown> & unknown[])
+): [unknown[], unknown[]?] => {
     const indexed: unknown[] = []
-    const nonIndexedObj: Record<string, unknown> = {}
+    const nonIndexed: unknown[] = []
     let hasNonIndexed = false
 
-    let propertiesCount = 0
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    for (const key in properties) {
-        propertiesCount++
+    const isArray = Array.isArray(properties)
+    const arrayCount = isArray ? (properties as unknown[]).length : 0
+    if (isArray) {
+        expect(arrayCount, 'Inconsistend set of indexed properties').lte(
+            fragment.inputs.length
+        )
     }
 
-    if (propertiesCount > 0) {
-        fragment.inputs.forEach((param) => {
-            let value = properties[param.name]
+    let namedCount = 0
+    // eslint-disable-next-line @typescript-eslint/no-for-in-array
+    for (const key in properties) {
+        if (!isArray || isNaN(parseInt(key, 10))) {
+            namedCount++
+        }
+    }
+
+    if (namedCount > 0 || arrayCount > 0) {
+        fragment.inputs.forEach((param, index) => {
+            let namedValue = (properties as Record<string, unknown>)[param.name]
+            let value = isArray
+                ? (properties as unknown[])[index] ?? null
+                : null
+
             // eslint-disable-next-line no-undefined
-            if (value === undefined) {
-                value = null
+            if (namedValue === undefined) {
+                namedValue = null
             } else {
-                propertiesCount--
+                namedCount--
             }
+
+            if (namedValue !== null) {
+                if (value === null) {
+                    value = namedValue
+                } else {
+                    // check for consistency of the input
+                    expect(namedValue).eq(value)
+                }
+            }
+
             if (param.indexed) {
                 indexed.push(value)
+                nonIndexed.push(null)
             } else {
                 indexed.push(null)
+                nonIndexed.push(value)
                 if (value !== null) {
-                    nonIndexedObj[param.name] = value
                     hasNonIndexed = true
                 }
             }
         })
-        expect(propertiesCount, 'Inconsistend set of properties').eq(0)
+        expect(namedCount, 'Inconsistend set of named properties').eq(0)
     }
 
-    // eslint-disable-next-line no-undefined
-    return [indexed, hasNonIndexed ? nonIndexedObj : undefined]
+    return hasNonIndexed ? [indexed, nonIndexed] : [indexed]
 }

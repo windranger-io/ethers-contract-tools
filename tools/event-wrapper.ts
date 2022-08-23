@@ -1,6 +1,6 @@
 import {expect} from 'chai'
-import {Contract, ContractReceipt, utils} from 'ethers'
-import { EventFilters, TypedEvent, TypedEventFilter } from './event-types'
+import {BaseContract, Contract, ContractReceipt, utils} from 'ethers'
+import {EventFilters, TypedEvent, TypedEventFilter} from './event-types'
 import {
     expectEmittersAndEvents,
     ExtendedEventFilter,
@@ -41,8 +41,27 @@ function findEventArgs(
     return found
 }
 
-export interface EventFactory<T = object> {
-    expectOne(receipt: ContractReceipt, expected?: T): T
+type PartialTuple<T extends unknown[]> = T extends [infer Head, ...infer Tail]
+    ? [(Head | null)?, ...PartialTuple<Tail>]
+    : []
+
+type EventIn<T extends TypedEvent> = T extends TypedEvent<infer A, infer O>
+    ? (PartialTuple<A> & O) | A | O
+    : never
+
+type PartialEventIn<T extends TypedEvent> = T extends TypedEvent<
+    infer A,
+    infer O
+>
+    ? (PartialTuple<A> & Partial<O>) | PartialTuple<A> | Partial<O>
+    : never
+
+type EventOut<T extends TypedEvent> = T extends TypedEvent<infer A, infer O>
+    ? A & O
+    : never
+
+export interface EventFactory<T extends TypedEvent = TypedEvent> {
+    expectOne(receipt: ContractReceipt, expected?: EventIn<T>): EventOut<T>
 
     /**
      * Parses logs of the receipt by the given filters.
@@ -69,52 +88,54 @@ export interface EventFactory<T = object> {
      */
     expectOrdered(
         receipt: ContractReceipt,
-        expecteds: Partial<T>[],
+        expecteds: PartialEventIn<T>[],
         forwardOnly?: boolean
-    ): T[]
+    ): EventOut<T>[]
 
-    all<Result = T[]>(
+    all<Result = EventOut<T>[]>(
         receipt: ContractReceipt,
-        fn?: (args: T[]) => Result
+        fn?: (args: EventOut<T>[]) => Result
     ): Result
 
     waitAll(
         source: ContractReceiptSource,
-        fn?: (args: T[]) => void
+        fn?: (args: EventOut<T>[]) => void
     ): Promise<ContractReceipt>
 
     toString(): string
     name(): string
 
-    newListener(): EventListener<T>
+    newListener(): EventListener<EventOut<T>>
     newFilter(
-        args?: Partial<T>,
+        args?: PartialEventIn<T>,
         emitterAddress?: string | '*'
-    ): ExtendedEventFilter<T>
+    ): ExtendedEventFilter<EventOut<T>>
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const _wrap = <T, E extends TypedEvent<any, T>>(
-    template: E, // only for type
+const _wrap = <T extends TypedEvent>(
+    template: T, // only for type
     customName: string,
     emitter: Contract
 ): EventFactory<T> =>
     new (class implements EventFactory<T> {
-        expectOne(receipt: ContractReceipt, expected?: T): T {
+        expectOne<R = EventOut<T>>(
+            receipt: ContractReceipt,
+            expected?: EventIn<T>
+        ): R {
             const args = findEventArgs(this.toString(), receipt, emitter)
 
             expect(
                 args.length,
                 `Expecting a single event ${this.toString()}`
             ).equals(1)
-            return this.verifyArgs(args[0], expected)
+            return this.verifyArgs<R>(args[0], expected)
         }
 
         expectOrdered(
             receipt: ContractReceipt,
-            expecteds: Partial<T>[],
+            expecteds: PartialEventIn<T>[],
             forwardOnly?: boolean
-        ): T[] {
+        ): EventOut<T>[] {
             const filters = expecteds.map((expected) =>
                 this.newFilter(expected)
             )
@@ -126,9 +147,9 @@ const _wrap = <T, E extends TypedEvent<any, T>>(
             return events
         }
 
-        all<Result = T[]>(
+        all<Result = EventOut<T>[]>(
             receipt: ContractReceipt,
-            fn?: (args: T[]) => Result
+            fn?: (args: EventOut<T>[]) => Result
         ): Result {
             const args = findEventArgs(this.toString(), receipt, emitter)
 
@@ -140,12 +161,12 @@ const _wrap = <T, E extends TypedEvent<any, T>>(
                 return args as unknown as Result
             }
 
-            return fn(args as unknown as T[])
+            return fn(args as unknown as EventOut<T>[])
         }
 
         async waitAll(
             source: ContractReceiptSource,
-            fn?: (args: T[]) => void
+            fn?: (args: EventOut<T>[]) => void
         ): Promise<ContractReceipt> {
             const receipt = await successfulTransaction(source)
             this.all(receipt, fn)
@@ -160,37 +181,39 @@ const _wrap = <T, E extends TypedEvent<any, T>>(
             return customName
         }
 
-        private verifyArgs(args: utils.Result, expected?: T): T {
+        private verifyArgs<R = EventOut<T>>(
+            args: utils.Result,
+            expected?: PartialEventIn<T>
+        ): R {
             const n = this.toString()
-            // eslint-disable-next-line no-undefined
-            if (expected !== undefined) {
+            if ((expected ?? null) !== null) {
                 _verifyByProperties(expected, n, args)
             }
             _verifyByFragment(emitter.interface.getEvent(n), n, args)
-            return args as unknown as T
+            return args as unknown as R
         }
 
-        newListener(): EventListener<T> {
+        newListener<R = EventOut<T>>(): EventListener<R> {
             const n = this.toString()
 
             const fragment = emitter.interface.getEvent(n)
-            return new EventListener<T>(emitter, n, (event) => {
+            return new EventListener<R>(emitter, n, (event) => {
                 const args = event.args ?? ({} as utils.Result)
                 _verifyByFragment(fragment, n, args)
-                return args as unknown as T
+                return args as unknown as R
             })
         }
 
         newFilter(
-            filter?: Partial<T>,
+            filter?: PartialEventIn<T>,
             emitterAddress?: string
-        ): ExtendedEventFilter<T> {
+        ): ExtendedEventFilter<EventOut<T>> {
             const n = this.toString()
-            return newExtendedEventFilter<T>(
+            return newExtendedEventFilter<EventOut<T>>(
                 n,
                 emitterAddress ?? emitter.address,
                 emitter.interface,
-                filter ?? {}
+                filter as unknown as EventOut<T>
             )
         }
     })()
@@ -200,10 +223,16 @@ const _verifyByFragment = (
     name: string,
     args: utils.Result
 ) => {
-    fragment.inputs.forEach((param) => {
-        const propName = param.name
-        expect(args[propName], `Property ${name}.${propName} is undefined`).is
-            .not.undefined
+    fragment.inputs.forEach((param, index) => {
+        expect(args[index], `Property ${name}[${index}] is undefined`).is.not
+            .undefined
+
+        if (param.name) {
+            expect(
+                args[param.name],
+                `Property ${name}.${param.name} is undefined`
+            ).is.not.undefined
+        }
     })
 }
 
@@ -212,44 +241,57 @@ const _verifyByProperties = <T>(
     name: string,
     args: utils.Result
 ) => {
-    Object.entries(expected).forEach((param) => {
-        const propName = param[0]
-        expect(
-            args[propName],
-            `Mismatched value of property ${name}.${propName}`
-        ).eq(param[1])
+    if (Array.isArray(expected)) {
+        ;(expected as unknown[]).forEach((value, index) => {
+            if ((value ?? null) !== null) {
+                expect(
+                    args[index],
+                    `Mismatched value of property ${name}[${index}]`
+                ).eq(value)
+            }
+        })
+    }
+    Object.entries(expected).forEach(([propName, value]) => {
+        if ((value ?? null) !== null) {
+            expect(
+                args[propName],
+                `Mismatched value of property ${name}.${propName}`
+            ).eq(value)
+        }
     })
 }
 
-class ContractEventFilters<F extends EventFilters> extends Contract {
+class ContractEventFilters<F extends EventFilters> extends BaseContract {
     readonly filters!: F
 }
 
-type ExtractEventFilterType<T extends TypedEventFilter<TypedEvent>> =
+type ExtractEventFilters<T extends BaseContract> =
+    T extends ContractEventFilters<infer F> ? F : never
+
+type EventFilterType<T extends TypedEventFilter<TypedEvent>> =
     T extends TypedEventFilter<infer R extends TypedEvent> ? R : never
 
-type EventObjectType<T extends TypedEvent> = T extends TypedEvent<
-    unknown[],
-    infer R
->
-    ? R
-    : never
-
 export const eventOf = <
-    F extends EventFilters,
-    N extends keyof F & string,
-    E extends ExtractEventFilterType<ReturnType<F[N]>>
+    C extends BaseContract,
+    N extends keyof ExtractEventFilters<C> & string
 >(
-    emitter: ContractEventFilters<F>,
+    emitter: C,
     name: N
-): EventFactory<EventObjectType<E>> =>
-    _wrap(null as unknown as E, name, emitter)
+): EventFactory<EventFilterType<ReturnType<ExtractEventFilters<C>[N]>>> =>
+    _wrap(
+        null as unknown as EventFilterType<
+            ReturnType<ExtractEventFilters<C>[N]>
+        >,
+        name,
+        emitter
+    )
 
 export const newEventListener = <
-    F extends EventFilters,
-    N extends keyof F & string,
-    E extends ExtractEventFilterType<ReturnType<F[N]>>
+    C extends BaseContract,
+    N extends keyof ExtractEventFilters<C> & string
 >(
-    emitter: ContractEventFilters<F>,
+    emitter: C,
     name: N
-): EventListener<EventObjectType<E>> => eventOf(emitter, name).newListener()
+): EventListener<
+    EventOut<EventFilterType<ReturnType<ExtractEventFilters<C>[N]>>>
+> => eventOf(emitter, name).newListener()
