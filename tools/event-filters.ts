@@ -242,7 +242,7 @@ function isDeepEqual(v0: unknown, v1: unknown): boolean {
         )
     }
 
-    const k0 = Object.getOwnPropertyNames(v0 as object)
+    const k0 = Object.getOwnPropertyNames(v0)
     const k1 = Object.getOwnPropertyNames(v1 as object)
 
     if (k0.length !== k1.length) {

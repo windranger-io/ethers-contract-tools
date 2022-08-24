@@ -128,7 +128,7 @@ const _wrap = <T extends TypedEvent>(
                 args.length,
                 `Expecting a single event ${this.toString()}`
             ).equals(1)
-            return this.verifyArgs<R>(args[0], expected)
+            return this.verifyArgs<R>(args[0], expected as PartialEventIn<T>)
         }
 
         expectOrdered(
