@@ -303,26 +303,26 @@ const _buildFilterArgs = (
     const nonIndexed: unknown[] = []
     let hasNonIndexed = false
 
-    const isArray = Array.isArray(properties)
-    const arrayCount = isArray ? (properties as unknown[]).length : 0
-    if (isArray) {
-        expect(arrayCount, 'Inconsistend set of indexed properties').lte(
-            fragment.inputs.length
-        )
-    }
-
+    let maxIndexed = -1
     let namedCount = 0
     // eslint-disable-next-line @typescript-eslint/no-for-in-array
     for (const key in properties) {
-        if (!isArray || isNaN(parseInt(key, 10))) {
+        const v = parseInt(key, 10)
+        if (isNaN(v)) {
             namedCount++
+        } else if (v > maxIndexed) {
+            maxIndexed = v
         }
     }
 
-    if (namedCount > 0 || arrayCount > 0) {
+    expect(maxIndexed, 'Inconsistend set of indexed properties').lt(
+        fragment.inputs.length
+    )
+
+    if (namedCount > 0 || maxIndexed >= 0) {
         fragment.inputs.forEach((param, index) => {
             let namedValue = (properties as Record<string, unknown>)[param.name]
-            let value = isArray
+            let value = index <= maxIndexed
                 ? (properties as unknown[])[index] ?? null
                 : null
 
