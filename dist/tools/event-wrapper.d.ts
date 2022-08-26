@@ -5,8 +5,7 @@ import { ContractReceiptSource } from './transaction';
 declare type PartialTuple<T extends unknown[]> = T extends [infer Head, ...infer Tail] ? [(Head | null)?, ...PartialTuple<Tail>] : [];
 declare type EventIn<A extends unknown[], O extends object> = (PartialTuple<A> & O) | A | O;
 declare type PartialEventIn<A extends unknown[], O extends object> = (PartialTuple<A> & Partial<O>) | PartialTuple<A> | Partial<O>;
-export interface EventFactoryWithTuple<A extends unknown[], O extends object> extends EventFactoryOmni<A, O, A & O> {
-}
+export declare type EventFactoryWithTuple<A extends unknown[], O extends object> = EventFactoryOmni<A, O, A & O>;
 export interface EventFactory<A extends unknown[], O extends object> extends EventFactoryOmni<A, O, O> {
     readonly withTuple: EventFactoryWithTuple<A, O>;
 }

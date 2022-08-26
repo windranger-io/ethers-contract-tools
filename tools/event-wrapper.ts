@@ -44,18 +44,31 @@ type PartialTuple<T extends unknown[]> = T extends [infer Head, ...infer Tail]
     ? [(Head | null)?, ...PartialTuple<Tail>]
     : []
 
-type EventIn<A extends unknown[], O extends object> = (PartialTuple<A> & O) | A | O
+type EventIn<A extends unknown[], O extends object> =
+    | (PartialTuple<A> & O)
+    | A
+    | O
 
-type PartialEventIn<A extends unknown[], O extends object> = (PartialTuple<A> & Partial<O>) | PartialTuple<A> | Partial<O>
+type PartialEventIn<A extends unknown[], O extends object> =
+    | (PartialTuple<A> & Partial<O>)
+    | PartialTuple<A>
+    | Partial<O>
 
-export interface EventFactoryWithTuple<A extends unknown[], O extends object> extends EventFactoryOmni<A, O, A & O> {
-}
+export type EventFactoryWithTuple<
+    A extends unknown[],
+    O extends object
+> = EventFactoryOmni<A, O, A & O>
 
-export interface EventFactory<A extends unknown[], O extends object> extends EventFactoryOmni<A, O, O> {
+export interface EventFactory<A extends unknown[], O extends object>
+    extends EventFactoryOmni<A, O, O> {
     readonly withTuple: EventFactoryWithTuple<A, O>
 }
 
-export interface EventFactoryOmni<A extends unknown[], O extends object, R extends O> {
+export interface EventFactoryOmni<
+    A extends unknown[],
+    O extends object,
+    R extends O
+> {
     expectOne(receipt: ContractReceipt, expected?: EventIn<A, O>): R
 
     /**
@@ -112,12 +125,9 @@ export const wrapEventType = <A extends unknown[], O extends object>(
     emitter: Contract
 ): EventFactory<A, O> =>
     new (class implements EventFactory<A, O> {
-        withTuple = this as unknown as EventFactoryWithTuple<A, O>        
+        withTuple = this as unknown as EventFactoryWithTuple<A, O>
 
-        expectOne(
-            receipt: ContractReceipt,
-            expected?: EventIn<A, O>
-        ): O {
+        expectOne(receipt: ContractReceipt, expected?: EventIn<A, O>): O {
             const args = findEventArgs(this.toString(), receipt, emitter)
 
             expect(
@@ -256,4 +266,3 @@ const _verifyByProperties = <T>(
         }
     })
 }
-

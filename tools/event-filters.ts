@@ -322,9 +322,10 @@ const _buildFilterArgs = (
     if (namedCount > 0 || maxIndexed >= 0) {
         fragment.inputs.forEach((param, index) => {
             let namedValue = (properties as Record<string, unknown>)[param.name]
-            let value = index <= maxIndexed
-                ? (properties as unknown[])[index] ?? null
-                : null
+            let value =
+                index <= maxIndexed
+                    ? (properties as unknown[])[index] ?? null
+                    : null
 
             // eslint-disable-next-line no-undefined
             if (namedValue === undefined) {
