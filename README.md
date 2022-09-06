@@ -6,9 +6,9 @@ Strongly-typed zero-code handling for events and contracts.
 ## Installation
 
 ```bash
-npm install --save-dev ethers-contract-tools
+npm install --save-dev windranger-tools-ethers
 # or
-yarn add --dev ethers-contract-tools
+yarn add --dev windranger-tools-ethers
 ```
 
 ## Usage
@@ -16,10 +16,10 @@ yarn add --dev ethers-contract-tools
 Import:
 
 ```javascript
-require('ethers-contract-tools');
+require('windranger-tools-ethers');
 ```
 
 ```typescript
-import 'ethers-contract-tools';
+import 'windranger-tools-ethers';
 ```
 
