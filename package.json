@@ -1,5 +1,5 @@
 {
-  "name": "ethers-contract-tools",
+  "name": "@windranger-io/ethers-contract-tools",
   "version": "1.0.0",
   "license": "Apache-2.0",
   "description": "Strongly-typed zero-code handling for events and contracts",
