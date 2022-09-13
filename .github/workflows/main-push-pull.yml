@@ -10,7 +10,6 @@ jobs:
   TypeScript-Static-Analyis:
     runs-on: ubuntu-latest
     name: TypeScript static analysis
-    needs: Unit-Tests
     steps:
       - name: Check out code
         uses: actions/checkout@v3
