@@ -24,7 +24,7 @@ export class EventListener<T> {
         captureEvents(contract, eventName, (event) => {
             if (event.blockNumber > blockNumber) {
                 this._events.push(convert(event))
-            }            
+            }
         })
     }
 

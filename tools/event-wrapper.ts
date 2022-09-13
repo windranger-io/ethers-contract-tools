@@ -203,11 +203,16 @@ export const wrapEventType = <A extends unknown[], O extends object>(
             const n = this.toString()
 
             const fragment = emitter.interface.getEvent(n)
-            return new EventListener<O>(emitter, n, (event) => {
-                const args = event.args ?? ({} as utils.Result)
-                _verifyByFragment(fragment, n, args)
-                return args as unknown as O
-            }, afterBlock)
+            return new EventListener<O>(
+                emitter,
+                n,
+                (event) => {
+                    const args = event.args ?? ({} as utils.Result)
+                    _verifyByFragment(fragment, n, args)
+                    return args as unknown as O
+                },
+                afterBlock
+            )
         }
 
         newFilter(
@@ -257,12 +262,14 @@ const _verifyByProperties = <T>(
             }
         })
     }
-    Object.entries(expected as unknown as object).forEach(([propName, value]) => {
-        if ((value ?? null) !== null) {
-            expect(
-                args[propName],
-                `Mismatched value of property ${name}.${propName}`
-            ).eq(value)
+    Object.entries(expected as unknown as object).forEach(
+        ([propName, value]) => {
+            if ((value ?? null) !== null) {
+                expect(
+                    args[propName],
+                    `Mismatched value of property ${name}.${propName}`
+                ).eq(value)
+            }
         }
-    })
+    )
 }
