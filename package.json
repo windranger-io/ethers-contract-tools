@@ -1,6 +1,6 @@
 {
   "name": "@windranger-io/windranger-tools-ethers",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "license": "Apache-2.0",
   "description": "Strongly-typed zero-code handling for events and contracts",
   "keywords": [
