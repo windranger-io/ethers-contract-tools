@@ -17,9 +17,9 @@ This tooling requires ethers and ethers typechain for contracts.
 
 
 ```bash
-npm install --save-dev windranger-tools-ethers
+npm install --save-dev @windranger-io/windranger-tools-ethers
 # or
-yarn add --dev windranger-tools-ethers
+yarn add --dev @windranger-io/windranger-tools-ethers
 ```
 
 
@@ -31,7 +31,7 @@ This tooling requires access to ethers typechains of a project. For this, the fo
 
 ```typescript
 import {BaseContract} from 'ethers'
-import {wrapEventType} from 'windranger-tools-ethers'
+import {wrapEventType} from '@windranger-io/windranger-tools-ethers'
 import {TypedEvent, TypedEventFilter} from '<path to typechain root>/common'
 
 /*
@@ -63,8 +63,8 @@ export const eventOf = <
 import {SignerWithAddress} from '@nomiclabs/hardhat-ethers/signers'
 import {ethers, upgrades} from 'hardhat'
 
-import {wrapImportedFactories} from 'windranger-tools-ethers/dist/tools/contract-wrappers'
-import * as types from '../../typechain-types'
+import {wrapImportedFactories} from '@windranger-io/windranger-tools-ethers/dist/tools/contract-wrappers'
+import * as types from '<path to typechain root>'
 
 const typedFactories = wrapImportedFactories(types, signer(0))
 
