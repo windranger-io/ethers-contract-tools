@@ -113,7 +113,7 @@ export interface EventFactoryOmni<
     toString(): string
     name(): string
 
-    newListener(): EventListener<R>
+    newListener(afterBlock?: number): EventListener<R>
     newFilter(
         args?: PartialEventIn<A, O>,
         emitterAddress?: string | '*'
@@ -199,7 +199,7 @@ export const wrapEventType = <A extends unknown[], O extends object>(
             return args as unknown as O
         }
 
-        newListener(): EventListener<O> {
+        newListener(afterBlock?: number): EventListener<O> {
             const n = this.toString()
 
             const fragment = emitter.interface.getEvent(n)
@@ -207,7 +207,7 @@ export const wrapEventType = <A extends unknown[], O extends object>(
                 const args = event.args ?? ({} as utils.Result)
                 _verifyByFragment(fragment, n, args)
                 return args as unknown as O
-            })
+            }, afterBlock)
         }
 
         newFilter(
@@ -257,7 +257,7 @@ const _verifyByProperties = <T>(
             }
         })
     }
-    Object.entries(expected).forEach(([propName, value]) => {
+    Object.entries(expected as unknown as object).forEach(([propName, value]) => {
         if ((value ?? null) !== null) {
             expect(
                 args[propName],
